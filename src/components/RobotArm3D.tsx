@@ -248,9 +248,9 @@ const RobotArmMesh = ({ joints, colors }: RobotArmMeshProps) => {
                   
                   {/* Highly Detailed Heavy Gripper Mount */}
                   <group position={[0, 0.4, 0]}>
-                    <mesh castShadow position={[0, 0.05, 0]}>
-                      <cylinderGeometry args={[0.16, 0.16, 0.1, 16]} rotation={[Math.PI / 2, 0, 0]} />
-                      <meshStandardMaterial color={colors.gripper} metalness={0.8} roughness={0.3} />
+                  <mesh position={[0, 0.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                        <cylinderGeometry args={[0.16, 0.16, 0.1, 16]} />
+                      {<meshStandardMaterial color={colors.gripper} metalness={0.8} roughness={0.3} />}
                     </mesh>
                     <RoundedBox args={[0.3, 0.1, 0.16]} position={[0, 0.1, 0]} radius={0.02} smoothness={4} castShadow>
                       <meshStandardMaterial color={colors.base} metalness={0.7} roughness={0.4} />
