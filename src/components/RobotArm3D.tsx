@@ -144,17 +144,42 @@ const RobotArmMesh = ({ joints }: RobotArmMeshProps) => {
                   
                   {/* Gripper */}
                   <group position={[0, 0.35, 0]}>
-                    <JointSphere radius={0.08} color="#aaaaaa" />
-                    <group ref={gripLeftRef} position={[0.11, 0.15, 0]}>
-                      <mesh castShadow>
-                        <boxGeometry args={[0.03, 0.3, 0.06]} />
+                    {/* Gripper mount block */}
+                    <mesh castShadow position={[0, 0.02, 0]}>
+                      <boxGeometry args={[0.22, 0.06, 0.1]} />
+                      <meshStandardMaterial color="#3a3a3a" metalness={0.9} roughness={0.2} />
+                    </mesh>
+                    {/* Left jaw */}
+                    <group ref={gripLeftRef} position={[0.11, 0, 0]}>
+                      {/* Vertical part */}
+                      <mesh castShadow position={[0, 0.12, 0]}>
+                        <boxGeometry args={[0.035, 0.2, 0.08]} />
                         <meshStandardMaterial color="#8a8a8a" metalness={0.9} roughness={0.2} />
                       </mesh>
+                      {/* Inward tip (L-shape) */}
+                      <mesh castShadow position={[-0.025, 0.24, 0]}>
+                        <boxGeometry args={[0.06, 0.06, 0.07]} />
+                        <meshStandardMaterial color="#aaaaaa" metalness={0.85} roughness={0.25} />
+                      </mesh>
+                      {/* Grip pad */}
+                      <mesh position={[-0.055, 0.24, 0]}>
+                        <boxGeometry args={[0.008, 0.05, 0.06]} />
+                        <meshStandardMaterial color="#e8870e" emissive="#e8870e" emissiveIntensity={0.2} roughness={0.8} />
+                      </mesh>
                     </group>
-                    <group ref={gripRightRef} position={[-0.11, 0.15, 0]}>
-                      <mesh castShadow>
-                        <boxGeometry args={[0.03, 0.3, 0.06]} />
+                    {/* Right jaw (mirrored) */}
+                    <group ref={gripRightRef} position={[-0.11, 0, 0]}>
+                      <mesh castShadow position={[0, 0.12, 0]}>
+                        <boxGeometry args={[0.035, 0.2, 0.08]} />
                         <meshStandardMaterial color="#8a8a8a" metalness={0.9} roughness={0.2} />
+                      </mesh>
+                      <mesh castShadow position={[0.025, 0.24, 0]}>
+                        <boxGeometry args={[0.06, 0.06, 0.07]} />
+                        <meshStandardMaterial color="#aaaaaa" metalness={0.85} roughness={0.25} />
+                      </mesh>
+                      <mesh position={[0.055, 0.24, 0]}>
+                        <boxGeometry args={[0.008, 0.05, 0.06]} />
+                        <meshStandardMaterial color="#e8870e" emissive="#e8870e" emissiveIntensity={0.2} roughness={0.8} />
                       </mesh>
                     </group>
                   </group>
