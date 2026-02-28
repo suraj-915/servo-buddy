@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import JointSlider from "./JointSlider";
+import RobotArm3D from "./RobotArm3D";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
@@ -157,12 +158,17 @@ const ControlPanel = () => {
         </Button>
       </header>
 
-      {/* Decorative screws */}
+      {/* 3D Viewer + Sliders Layout */}
       <div className="panel-raised industrial-border rounded-lg p-5 md:p-6 relative">
         <div className="absolute top-2 left-2 screw-hole" />
         <div className="absolute top-2 right-2 screw-hole" />
         <div className="absolute bottom-2 left-2 screw-hole" />
         <div className="absolute bottom-2 right-2 screw-hole" />
+
+        {/* 3D Arm Viewer */}
+        <div className="h-[350px] md:h-[400px] mb-6 rounded-md overflow-hidden">
+          <RobotArm3D joints={joints} />
+        </div>
 
         {/* Joint Sliders */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
