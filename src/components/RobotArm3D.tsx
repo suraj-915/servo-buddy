@@ -1,4 +1,4 @@
-import { useRef, useMemo } from "react";
+import { useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Environment, Grid } from "@react-three/drei";
 import * as THREE from "three";
@@ -63,26 +63,52 @@ interface RobotArmMeshProps {
 }
 
 const RobotArmMesh = ({ joints }: RobotArmMeshProps) => {
-  const groupRef = useRef<THREE.Group>(null);
   const currentAngles = useRef([90, 90, 90, 90, 90, 180]);
 
-  // Smooth interpolation
+  // References to each joint group for direct mutation (smooth animation)
+  const waistRef = useRef<THREE.Group>(null);
+  const shoulderRef = useRef<THREE.Group>(null);
+  const elbowRef = useRef<THREE.Group>(null);
+  const wristRollRef = useRef<THREE.Group>(null);
+  const wristPitchRef = useRef<THREE.Group>(null);
+  const gripLeftRef = useRef<THREE.Group>(null);
+  const gripRightRef = useRef<THREE.Group>(null);
+
   useFrame(() => {
+    const smoothing = 0.06;
     for (let i = 0; i < 6; i++) {
-      currentAngles.current[i] = lerpAngle(currentAngles.current[i], joints[i], 0.08);
+      currentAngles.current[i] = lerpAngle(currentAngles.current[i], joints[i], smoothing);
+    }
+
+    const c = currentAngles.current;
+
+    if (waistRef.current) {
+      waistRef.current.rotation.y = c[5] * DEG2RAD;
+    }
+    if (shoulderRef.current) {
+      shoulderRef.current.rotation.x = (c[4] - 90) * DEG2RAD;
+    }
+    if (elbowRef.current) {
+      elbowRef.current.rotation.x = (c[3] - 90) * DEG2RAD;
+    }
+    if (wristRollRef.current) {
+      wristRollRef.current.rotation.y = c[2] * DEG2RAD;
+    }
+    if (wristPitchRef.current) {
+      wristPitchRef.current.rotation.x = (c[1] - 90) * DEG2RAD;
+    }
+
+    const gripOffset = 0.05 + (c[0] / 180) * 0.12;
+    if (gripLeftRef.current) {
+      gripLeftRef.current.position.x = gripOffset;
+    }
+    if (gripRightRef.current) {
+      gripRightRef.current.position.x = -gripOffset;
     }
   });
 
-  // Grip (0), Wrist Pitch (1), Wrist Roll (2), Elbow (3), Shoulder (4), Waist (5)
-  const waistAngle = useMemo(() => joints[5] * DEG2RAD, [joints[5]]);
-  const shoulderAngle = useMemo(() => (joints[4] - 90) * DEG2RAD, [joints[4]]);
-  const elbowAngle = useMemo(() => (joints[3] - 90) * DEG2RAD, [joints[3]]);
-  const wristRollAngle = useMemo(() => joints[2] * DEG2RAD, [joints[2]]);
-  const wristPitchAngle = useMemo(() => (joints[1] - 90) * DEG2RAD, [joints[1]]);
-  const gripAmount = joints[0] / 180;
-
   return (
-    <group ref={groupRef}>
+    <group>
       {/* Base */}
       <mesh position={[0, 0.1, 0]} receiveShadow castShadow>
         <cylinderGeometry args={[0.5, 0.55, 0.2, 32]} />
@@ -94,33 +120,43 @@ const RobotArmMesh = ({ joints }: RobotArmMeshProps) => {
       </mesh>
 
       {/* Waist rotation */}
-      <group position={[0, 0.2, 0]} rotation={[0, waistAngle, 0]}>
+      <group ref={waistRef} position={[0, 0.2, 0]}>
         <JointSphere radius={0.18} />
         
         {/* Shoulder */}
-        <group rotation={[shoulderAngle, 0, 0]}>
+        <group ref={shoulderRef}>
           <ArmSegment length={1.0} width={0.18} color="#3a3a3a" emissive="#e8870e" />
           
           {/* Elbow joint */}
           <group position={[0, 1.0, 0]}>
             <JointSphere radius={0.14} />
             
-            <group rotation={[elbowAngle, 0, 0]}>
+            <group ref={elbowRef}>
               <ArmSegment length={0.8} width={0.14} color="#4a4a4a" emissive="#e8870e" />
               
               {/* Wrist roll */}
-              <group position={[0, 0.8, 0]} rotation={[0, wristRollAngle, 0]}>
+              <group ref={wristRollRef} position={[0, 0.8, 0]}>
                 <JointSphere radius={0.1} />
                 
                 {/* Wrist pitch */}
-                <group rotation={[wristPitchAngle, 0, 0]}>
+                <group ref={wristPitchRef}>
                   <ArmSegment length={0.35} width={0.1} color="#5a5a5a" emissive="#e8870e" />
                   
                   {/* Gripper */}
                   <group position={[0, 0.35, 0]}>
                     <JointSphere radius={0.08} color="#aaaaaa" />
-                    <GripperFinger side={1} openAmount={gripAmount} />
-                    <GripperFinger side={-1} openAmount={gripAmount} />
+                    <group ref={gripLeftRef} position={[0.11, 0.15, 0]}>
+                      <mesh castShadow>
+                        <boxGeometry args={[0.03, 0.3, 0.06]} />
+                        <meshStandardMaterial color="#8a8a8a" metalness={0.9} roughness={0.2} />
+                      </mesh>
+                    </group>
+                    <group ref={gripRightRef} position={[-0.11, 0.15, 0]}>
+                      <mesh castShadow>
+                        <boxGeometry args={[0.03, 0.3, 0.06]} />
+                        <meshStandardMaterial color="#8a8a8a" metalness={0.9} roughness={0.2} />
+                      </mesh>
+                    </group>
                   </group>
                 </group>
               </group>
