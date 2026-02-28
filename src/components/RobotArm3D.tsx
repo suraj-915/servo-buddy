@@ -1,71 +1,187 @@
 import { useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Environment, Grid } from "@react-three/drei";
+import { OrbitControls, Grid, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
+import { useTheme } from "./theme-provider";
 
 const DEG2RAD = Math.PI / 180;
 
-// Lerp helper for smooth joint transitions
 function lerpAngle(current: number, target: number, t: number) {
   return current + (target - current) * t;
 }
 
+// --- COLOR DICTIONARY ---
+interface ThemePalette {
+  base: string;
+  segment: string;
+  joint: string;
+  jointEmissive: string;
+  gripper: string;
+  gripperPad: string;
+  background: string;
+  grid: string;
+  gridSection: string;
+  lightIntensity: number;
+}
+
+const THEME_COLORS: Record<string, ThemePalette> = {
+  blueprint: {
+    base: "#64748b",          // Slate grey structural base
+    segment: "#ffffff",       // Stark drafting white for the main body
+    joint: "#06b6d4",         // (Unchanged accent)
+    jointEmissive: "#0891b2", // (Unchanged accent)
+    gripper: "#94a3b8",       // Slate gripper
+    gripperPad: "#06b6d4",    // (Unchanged accent)
+    background: "#081120",
+    grid: "#1e3a5f",
+    gridSection: "#2a5288",
+    lightIntensity: 0.8,
+  },
+  industrial: {
+    base: "#333333",          // Heavy dark iron base
+    segment: "#f3f4f6",       // Classic Industrial White machinery body
+    joint: "#e8870e",         // (Unchanged accent)
+    jointEmissive: "#e8870e", // (Unchanged accent)
+    gripper: "#d1d5db",       // Steel grey metallic gripper
+    gripperPad: "#e8870e",    // (Unchanged accent)
+    background: "#0d1117",
+    grid: "#1a2030",
+    gridSection: "#253040",
+    lightIntensity: 1.2,
+  },
+ cyberpunk: {
+    base: "#d1d5db",          // Metallic silver base
+    segment: "#ffffff",       // High-tech ceramic white
+    joint: "#ff0040",         // (Unchanged accent)
+    jointEmissive: "#ff0040", // (Unchanged accent)
+    gripper: "#9ca3af",       // Darker steel gripper
+    gripperPad: "#ff0040",    // (Unchanged accent)
+    background: "#090114",
+    grid: "#2a004d",
+    gridSection: "#4d008c",
+    lightIntensity: 1.5,
+  },
+  laboratory: {
+    base: "#cbd5e1",
+    segment: "#ffffff",
+    joint: "#3b82f6",
+    jointEmissive: "#2563eb",
+    gripper: "#f1f5f9",
+    gripperPad: "#ef4444",
+    background: "#f8fafc",
+    grid: "#e2e8f0",
+    gridSection: "#cbd5e1",
+    lightIntensity: 0.6,
+  }
+};
+
+// --- COMPONENTS ---
 interface ArmSegmentProps {
   length: number;
   width: number;
-  color: string;
-  emissive?: string;
+  colors: ThemePalette;
 }
 
-const ArmSegment = ({ length, width, color, emissive }: ArmSegmentProps) => {
-  return (
-    <mesh position={[0, length / 2, 0]} castShadow receiveShadow>
-      <boxGeometry args={[width, length, width]} />
-      <meshStandardMaterial
-        color={color}
-        emissive={emissive || "#000000"}
-        emissiveIntensity={0.1}
-        metalness={0.8}
-        roughness={0.3}
-      />
-    </mesh>
-  );
-};
+const ArmSegment = ({ length, width, colors }: ArmSegmentProps) => {
+  const coreWidth = width * 0.5;
+  const plateWidth = width * 1.1;
+  const plateThickness = width * 0.8;
 
-const JointSphere = ({ radius = 0.15, color = "#e8870e" }) => (
-  <mesh castShadow>
-    <sphereGeometry args={[radius, 16, 16]} />
-    <meshStandardMaterial
-      color={color}
-      emissive={color}
-      emissiveIntensity={0.3}
-      metalness={0.6}
-      roughness={0.4}
-    />
-  </mesh>
-);
-
-// Gripper fingers
-const GripperFinger = ({ side, openAmount }: { side: 1 | -1; openAmount: number }) => {
-  const offset = 0.05 + openAmount * 0.12;
   return (
-    <group position={[side * offset, 0.15, 0]}>
-      <mesh castShadow>
-        <boxGeometry args={[0.03, 0.3, 0.06]} />
-        <meshStandardMaterial color="#8a8a8a" metalness={0.9} roughness={0.2} />
+    <group position={[0, length / 2, 0]}>
+      {/* Inner Mechanical Core */}
+      <mesh castShadow receiveShadow>
+        <cylinderGeometry args={[coreWidth, coreWidth, length * 0.95, 16]} />
+        <meshStandardMaterial color="#222222" roughness={0.5} metalness={0.8} />
+      </mesh>
+
+      {/* Front Curved Armor Plate */}
+      <RoundedBox 
+        args={[plateWidth, length * 0.85, plateThickness * 0.4]} 
+        position={[0, 0, plateThickness / 2]} 
+        radius={0.03} 
+        smoothness={4} 
+        castShadow 
+        receiveShadow
+      >
+        <meshStandardMaterial color={colors.segment} roughness={0.3} metalness={0.7} />
+      </RoundedBox>
+
+      {/* Back Curved Armor Plate */}
+      <RoundedBox 
+        args={[plateWidth, length * 0.85, plateThickness * 0.4]} 
+        position={[0, 0, -plateThickness / 2]} 
+        radius={0.03} 
+        smoothness={4} 
+        castShadow 
+        receiveShadow
+      >
+        <meshStandardMaterial color={colors.segment} roughness={0.3} metalness={0.7} />
+      </RoundedBox>
+
+      {/* Side Support Rails */}
+      <mesh position={[plateWidth / 2 + 0.02, 0, 0]} castShadow>
+        <boxGeometry args={[0.04, length * 0.75, plateThickness * 0.9]} />
+        <meshStandardMaterial color={colors.base} roughness={0.4} metalness={0.8} />
+      </mesh>
+      <mesh position={[-plateWidth / 2 - 0.02, 0, 0]} castShadow>
+        <boxGeometry args={[0.04, length * 0.75, plateThickness * 0.9]} />
+        <meshStandardMaterial color={colors.base} roughness={0.4} metalness={0.8} />
+      </mesh>
+
+      {/* Front Hydraulic Pistons & Glowing Wiring */}
+      <group position={[0, 0, plateThickness / 2 + 0.03]}>
+        {/* Left Chrome Piston */}
+        <mesh position={[-0.06, 0, 0]} castShadow>
+          <cylinderGeometry args={[0.015, 0.015, length * 0.8, 12]} />
+          <meshStandardMaterial color="#cccccc" roughness={0.1} metalness={1.0} />
+        </mesh>
+        {/* Right Chrome Piston */}
+        <mesh position={[0.06, 0, 0]} castShadow>
+          <cylinderGeometry args={[0.015, 0.015, length * 0.8, 12]} />
+          <meshStandardMaterial color="#cccccc" roughness={0.1} metalness={1.0} />
+        </mesh>
+        {/* Central Glowing Power Wire */}
+        <mesh position={[0, 0, 0.02]} castShadow>
+          <cylinderGeometry args={[0.008, 0.008, length * 0.9, 8]} />
+          <meshStandardMaterial color={colors.jointEmissive} emissive={colors.jointEmissive} emissiveIntensity={1.5} />
+        </mesh>
+      </group>
+
+      {/* Mechanical Joint Housings (Caps) at the Ends */}
+      <mesh position={[0, length / 2, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+        <cylinderGeometry args={[width * 0.55, width * 0.55, width * 1.3, 24]} />
+        <meshStandardMaterial color={colors.base} roughness={0.5} metalness={0.6} />
+      </mesh>
+      <mesh position={[0, -length / 2, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+        <cylinderGeometry args={[width * 0.55, width * 0.55, width * 1.3, 24]} />
+        <meshStandardMaterial color={colors.base} roughness={0.5} metalness={0.6} />
       </mesh>
     </group>
   );
 };
 
+const JointSphere = ({ radius = 0.15, colors }: { radius?: number, colors: ThemePalette }) => (
+  <mesh castShadow>
+    <sphereGeometry args={[radius, 32, 32]} />
+    <meshStandardMaterial
+      color={colors.joint}
+      emissive={colors.jointEmissive}
+      emissiveIntensity={0.5}
+      metalness={0.5}
+      roughness={0.4}
+    />
+  </mesh>
+);
+
 interface RobotArmMeshProps {
   joints: number[];
+  colors: ThemePalette;
 }
 
-const RobotArmMesh = ({ joints }: RobotArmMeshProps) => {
+const RobotArmMesh = ({ joints, colors }: RobotArmMeshProps) => {
   const currentAngles = useRef([90, 90, 90, 90, 90, 180]);
 
-  // References to each joint group for direct mutation (smooth animation)
   const waistRef = useRef<THREE.Group>(null);
   const shoulderRef = useRef<THREE.Group>(null);
   const elbowRef = useRef<THREE.Group>(null);
@@ -79,109 +195,97 @@ const RobotArmMesh = ({ joints }: RobotArmMeshProps) => {
     for (let i = 0; i < 6; i++) {
       currentAngles.current[i] = lerpAngle(currentAngles.current[i], joints[i], smoothing);
     }
-
     const c = currentAngles.current;
 
-    if (waistRef.current) {
-      waistRef.current.rotation.y = c[5] * DEG2RAD;
-    }
-    if (shoulderRef.current) {
-      shoulderRef.current.rotation.x = (c[4] - 90) * DEG2RAD;
-    }
-    if (elbowRef.current) {
-      elbowRef.current.rotation.x = (c[3] - 90) * DEG2RAD;
-    }
-    if (wristRollRef.current) {
-      wristRollRef.current.rotation.y = c[2] * DEG2RAD;
-    }
-    if (wristPitchRef.current) {
-      wristPitchRef.current.rotation.x = (c[1] - 90) * DEG2RAD;
-    }
+    if (waistRef.current) waistRef.current.rotation.y = c[5] * DEG2RAD;
+    if (shoulderRef.current) shoulderRef.current.rotation.x = (c[4] - 90) * DEG2RAD;
+    if (elbowRef.current) elbowRef.current.rotation.x = (c[3] - 90) * DEG2RAD;
+    if (wristRollRef.current) wristRollRef.current.rotation.y = c[2] * DEG2RAD;
+    if (wristPitchRef.current) wristPitchRef.current.rotation.x = (c[1] - 90) * DEG2RAD;
 
-    const gripOffset = 0.05 + (c[0] / 180) * 0.12;
-    if (gripLeftRef.current) {
-      gripLeftRef.current.position.x = gripOffset;
-    }
-    if (gripRightRef.current) {
-      gripRightRef.current.position.x = -gripOffset;
-    }
+    const maxGripAngle = 40 * DEG2RAD;
+    const gripAngle = (c[0] / 180) * maxGripAngle;
+    if (gripLeftRef.current) gripLeftRef.current.rotation.z = -gripAngle;
+    if (gripRightRef.current) gripRightRef.current.rotation.z = gripAngle;
   });
 
   return (
     <group>
-      {/* Base */}
-      <mesh position={[0, 0.1, 0]} receiveShadow castShadow>
-        <cylinderGeometry args={[0.5, 0.55, 0.2, 32]} />
-        <meshStandardMaterial color="#2a2a2a" metalness={0.9} roughness={0.2} />
-      </mesh>
+      {/* Multi-tier Heavy Base Support */}
       <mesh position={[0, 0.02, 0]} receiveShadow>
-        <cylinderGeometry args={[0.6, 0.6, 0.04, 32]} />
-        <meshStandardMaterial color="#1a1a1a" metalness={0.9} roughness={0.3} />
+        <cylinderGeometry args={[0.8, 0.85, 0.04, 32]} />
+        <meshStandardMaterial color={colors.base} metalness={0.8} roughness={0.4} />
+      </mesh>
+      <mesh position={[0, 0.14, 0]} receiveShadow castShadow>
+        <cylinderGeometry args={[0.5, 0.65, 0.2, 32]} />
+        <meshStandardMaterial color={colors.segment} metalness={0.7} roughness={0.3} />
+      </mesh>
+      <mesh position={[0, 0.26, 0]} receiveShadow castShadow>
+        <cylinderGeometry args={[0.4, 0.5, 0.04, 32]} />
+        <meshStandardMaterial color={colors.gripper} metalness={0.8} roughness={0.3} />
       </mesh>
 
-      {/* Waist rotation */}
-      <group ref={waistRef} position={[0, 0.2, 0]}>
-        <JointSphere radius={0.18} />
+      <group ref={waistRef} position={[0, 0.35, 0]}>
+        <JointSphere radius={0.24} colors={colors} />
         
-        {/* Shoulder */}
         <group ref={shoulderRef}>
-          <ArmSegment length={1.0} width={0.18} color="#3a3a3a" emissive="#e8870e" />
+          {/* Main Thick Shoulder Segment */}
+          <ArmSegment length={1.1} width={0.32} colors={colors} />
           
-          {/* Elbow joint */}
-          <group position={[0, 1.0, 0]}>
-            <JointSphere radius={0.14} />
+          <group position={[0, 1.1, 0]}>
+            <JointSphere radius={0.20} colors={colors} />
             
             <group ref={elbowRef}>
-              <ArmSegment length={0.8} width={0.14} color="#4a4a4a" emissive="#e8870e" />
+              {/* Secondary Elbow Segment */}
+              <ArmSegment length={0.9} width={0.26} colors={colors} />
               
-              {/* Wrist roll */}
-              <group ref={wristRollRef} position={[0, 0.8, 0]}>
-                <JointSphere radius={0.1} />
+              <group ref={wristRollRef} position={[0, 0.9, 0]}>
+                <JointSphere radius={0.16} colors={colors} />
                 
-                {/* Wrist pitch */}
                 <group ref={wristPitchRef}>
-                  <ArmSegment length={0.35} width={0.1} color="#5a5a5a" emissive="#e8870e" />
+                  {/* Wrist Segment */}
+                  <ArmSegment length={0.4} width={0.18} colors={colors} />
                   
-                  {/* Gripper */}
-                  <group position={[0, 0.35, 0]}>
-                    {/* Gripper mount block */}
-                    <mesh castShadow position={[0, 0.02, 0]}>
-                      <boxGeometry args={[0.22, 0.06, 0.1]} />
-                      <meshStandardMaterial color="#3a3a3a" metalness={0.9} roughness={0.2} />
+                  {/* Highly Detailed Heavy Gripper Mount */}
+                  <group position={[0, 0.4, 0]}>
+                    <mesh castShadow position={[0, 0.05, 0]}>
+                      <cylinderGeometry args={[0.16, 0.16, 0.1, 16]} rotation={[Math.PI / 2, 0, 0]} />
+                      <meshStandardMaterial color={colors.gripper} metalness={0.8} roughness={0.3} />
                     </mesh>
-                    {/* Left jaw */}
-                    <group ref={gripLeftRef} position={[0.11, 0, 0]}>
-                      {/* Vertical part */}
-                      <mesh castShadow position={[0, 0.12, 0]}>
-                        <boxGeometry args={[0.035, 0.2, 0.08]} />
-                        <meshStandardMaterial color="#8a8a8a" metalness={0.9} roughness={0.2} />
+                    <RoundedBox args={[0.3, 0.1, 0.16]} position={[0, 0.1, 0]} radius={0.02} smoothness={4} castShadow>
+                      <meshStandardMaterial color={colors.base} metalness={0.7} roughness={0.4} />
+                    </RoundedBox>
+
+                    {/* Left Jaw */}
+                    <group ref={gripLeftRef} position={[0.09, 0.15, 0]}>
+                      <RoundedBox args={[0.045, 0.24, 0.09]} position={[0, 0.1, 0]} radius={0.01} castShadow>
+                        <meshStandardMaterial color={colors.segment} metalness={0.8} roughness={0.3} />
+                      </RoundedBox>
+                      <mesh castShadow position={[-0.035, 0.24, 0]}>
+                        <boxGeometry args={[0.09, 0.07, 0.08]} />
+                        <meshStandardMaterial color={colors.gripper} metalness={0.9} roughness={0.2} />
                       </mesh>
-                      {/* Inward tip (L-shape) */}
-                      <mesh castShadow position={[-0.025, 0.24, 0]}>
-                        <boxGeometry args={[0.06, 0.06, 0.07]} />
-                        <meshStandardMaterial color="#aaaaaa" metalness={0.85} roughness={0.25} />
-                      </mesh>
-                      {/* Grip pad */}
-                      <mesh position={[-0.055, 0.24, 0]}>
-                        <boxGeometry args={[0.008, 0.05, 0.06]} />
-                        <meshStandardMaterial color="#e8870e" emissive="#e8870e" emissiveIntensity={0.2} roughness={0.8} />
-                      </mesh>
-                    </group>
-                    {/* Right jaw (mirrored) */}
-                    <group ref={gripRightRef} position={[-0.11, 0, 0]}>
-                      <mesh castShadow position={[0, 0.12, 0]}>
-                        <boxGeometry args={[0.035, 0.2, 0.08]} />
-                        <meshStandardMaterial color="#8a8a8a" metalness={0.9} roughness={0.2} />
-                      </mesh>
-                      <mesh castShadow position={[0.025, 0.24, 0]}>
-                        <boxGeometry args={[0.06, 0.06, 0.07]} />
-                        <meshStandardMaterial color="#aaaaaa" metalness={0.85} roughness={0.25} />
-                      </mesh>
-                      <mesh position={[0.055, 0.24, 0]}>
-                        <boxGeometry args={[0.008, 0.05, 0.06]} />
-                        <meshStandardMaterial color="#e8870e" emissive="#e8870e" emissiveIntensity={0.2} roughness={0.8} />
+                      <mesh position={[-0.08, 0.24, 0]}>
+                        <boxGeometry args={[0.015, 0.06, 0.07]} />
+                        <meshStandardMaterial color={colors.gripperPad} emissive={colors.gripperPad} emissiveIntensity={0.8} />
                       </mesh>
                     </group>
+
+                    {/* Right Jaw */}
+                    <group ref={gripRightRef} position={[-0.09, 0.15, 0]}>
+                      <RoundedBox args={[0.045, 0.24, 0.09]} position={[0, 0.1, 0]} radius={0.01} castShadow>
+                        <meshStandardMaterial color={colors.segment} metalness={0.8} roughness={0.3} />
+                      </RoundedBox>
+                      <mesh castShadow position={[0.035, 0.24, 0]}>
+                        <boxGeometry args={[0.09, 0.07, 0.08]} />
+                        <meshStandardMaterial color={colors.gripper} metalness={0.9} roughness={0.2} />
+                      </mesh>
+                      <mesh position={[0.08, 0.24, 0]}>
+                        <boxGeometry args={[0.015, 0.06, 0.07]} />
+                        <meshStandardMaterial color={colors.gripperPad} emissive={colors.gripperPad} emissiveIntensity={0.8} />
+                      </mesh>
+                    </group>
+
                   </group>
                 </group>
               </group>
@@ -198,57 +302,48 @@ interface RobotArm3DProps {
 }
 
 const RobotArm3D = ({ joints }: RobotArm3DProps) => {
-  return (
-    <div className="w-full h-full rounded-md overflow-hidden panel-inset">
-      <Canvas
-        shadows
-        camera={{ position: [3, 2.5, 3], fov: 45 }}
-        style={{ background: "transparent" }}
-      >
-        <color attach="background" args={["#0d1117"]} />
-        <fog attach="fog" args={["#0d1117", 8, 20]} />
+  const { theme } = useTheme();
+  const colors = THEME_COLORS[theme] || THEME_COLORS.blueprint;
 
-        {/* Lighting */}
-        <ambientLight intensity={0.3} />
+  return (
+    <div className="w-full h-full rounded-md overflow-hidden panel-inset transition-colors duration-500">
+      <Canvas shadows camera={{ position: [3.5, 3.5, 3.5], fov: 48 }} style={{ background: "transparent" }}>
+        <color attach="background" args={[colors.background]} />
+        <fog attach="fog" args={[colors.background, 8, 22]} />
+
+        <ambientLight intensity={colors.lightIntensity * 0.4} />
         <directionalLight
           position={[5, 8, 5]}
-          intensity={1.2}
+          intensity={colors.lightIntensity * 1.2}
           castShadow
-          shadow-mapSize-width={1024}
-          shadow-mapSize-height={1024}
+          shadow-mapSize-width={2048}
+          shadow-mapSize-height={2048}
+          shadow-bias={-0.0001}
         />
-        <pointLight position={[-3, 4, -3]} intensity={0.5} color="#e8870e" />
-        <pointLight position={[3, 1, 3]} intensity={0.3} color="#4488ff" />
+        <pointLight position={[-3, 4, -3]} intensity={colors.lightIntensity * 0.6} color={colors.jointEmissive} />
+        <pointLight position={[3, 2, 3]} intensity={colors.lightIntensity * 0.4} color="#ffffff" />
 
-        {/* Ground grid */}
         <Grid
           args={[20, 20]}
           cellSize={0.5}
           cellThickness={0.5}
-          cellColor="#1a2030"
+          cellColor={colors.grid}
           sectionSize={2}
           sectionThickness={1}
-          sectionColor="#253040"
+          sectionColor={colors.gridSection}
           fadeDistance={12}
           fadeStrength={1}
           position={[0, 0, 0]}
         />
 
-        {/* Ground plane for shadows */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
           <planeGeometry args={[20, 20]} />
-          <shadowMaterial opacity={0.4} />
+          <shadowMaterial opacity={theme === "laboratory" ? 0.05 : 0.5} />
         </mesh>
 
-        <RobotArmMesh joints={joints} />
+        <RobotArmMesh joints={joints} colors={colors} />
 
-        <OrbitControls
-          enablePan={false}
-          minDistance={2}
-          maxDistance={8}
-          minPolarAngle={0.2}
-          maxPolarAngle={Math.PI / 2 - 0.1}
-        />
+        <OrbitControls enablePan={false} minDistance={2} maxDistance={9} minPolarAngle={0.1} maxPolarAngle={Math.PI / 2 - 0.05} />
       </Canvas>
     </div>
   );

@@ -19,8 +19,10 @@ import {
   CircleDot,
   Gauge,
   Zap,
+  Palette,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTheme, Theme } from "./theme-provider";
 
 interface Pose {
   joints: number[];
@@ -36,7 +38,10 @@ const JOINT_CONFIG = [
   { label: "Waist", icon: <CircleDot className="w-4 h-4 text-primary" />, min: 0, max: 360 },
 ];
 
+const THEMES: Theme[] = ["blueprint", "industrial", "cyberpunk", "laboratory"];
+
 const ControlPanel = () => {
+  const { theme, setTheme } = useTheme();
   const [joints, setJoints] = useState<number[]>([90, 90, 90, 90, 90, 180]);
   const [speed, setSpeed] = useState(50);
   const [poses, setPoses] = useState<Pose[]>([]);
@@ -45,6 +50,11 @@ const ControlPanel = () => {
   const [btConnected, setBtConnected] = useState(false);
   const playRef = useRef<number | null>(null);
   const loopRef = useRef(false);
+
+  const toggleTheme = () => {
+    const currentIdx = THEMES.indexOf(theme);
+    setTheme(THEMES[(currentIdx + 1) % THEMES.length]);
+  };
 
   const updateJoint = (index: number, value: number) => {
     setJoints((prev) => {
@@ -127,51 +137,67 @@ const ControlPanel = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6 lg:p-8">
+    <div className="h-screen w-full overflow-hidden flex flex-col bg-background p-3 md:p-4 lg:p-6 transition-colors duration-500">
+      
       {/* Header */}
-      <header className="flex items-center justify-between mb-6">
+      <header className="flex-none flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-md bg-primary/10 border border-primary/30 flex items-center justify-center glow-amber">
+          <div className="w-10 h-10 rounded-md bg-primary/10 border border-primary/30 flex items-center justify-center glow-amber transition-colors duration-500">
             <Zap className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-lg font-bold uppercase tracking-wider text-foreground">
-              ARM<span className="text-primary">CTRL</span>
+            <h1 className="text-lg font-bold uppercase tracking-wider text-foreground transition-colors duration-500">
+              ARM<span className="text-primary transition-colors duration-500">CTRL</span>
             </h1>
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground transition-colors duration-500">
               6-Axis Servo Controller
             </p>
           </div>
         </div>
 
-        <Button
-          variant={btConnected ? "default" : "outline"}
-          size="sm"
-          onClick={connectBluetooth}
-          className={btConnected ? "glow-amber" : ""}
-        >
-          <Bluetooth className="w-4 h-4 mr-2" />
-          <span className="text-xs uppercase tracking-wide">
-            {btConnected ? "Connected" : "Connect"}
-          </span>
-          {btConnected && <span className="ml-2 status-dot bg-success" />}
-        </Button>
+        {/* Buttons - Both set to w-[140px] and justify-center to match perfectly! */}
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleTheme}
+            className="hidden sm:flex transition-colors duration-500 w-[140px] justify-center"
+          >
+            <Palette className="w-4 h-4 mr-2 shrink-0" />
+            <span className="text-xs uppercase tracking-wide">
+              {theme}
+            </span>
+          </Button>
+
+          <Button
+            variant={btConnected ? "default" : "outline"}
+            size="sm"
+            onClick={connectBluetooth}
+            className={`transition-colors duration-500 w-[140px] justify-center ${btConnected ? "glow-amber" : ""}`}
+          >
+            <Bluetooth className="w-4 h-4 mr-2 shrink-0" />
+            <span className="text-xs uppercase tracking-wide">
+              {btConnected ? "Connected" : "Connect"}
+            </span>
+            {btConnected && <span className="ml-2 status-dot bg-success shrink-0" />}
+          </Button>
+        </div>
       </header>
 
-      {/* 3D Viewer + Sliders Layout */}
-      <div className="panel-raised industrial-border rounded-lg p-5 md:p-6 relative">
-        <div className="absolute top-2 left-2 screw-hole" />
-        <div className="absolute top-2 right-2 screw-hole" />
-        <div className="absolute bottom-2 left-2 screw-hole" />
-        <div className="absolute bottom-2 right-2 screw-hole" />
+      {/* Main Panel */}
+      <div className="flex-1 flex flex-col panel-raised industrial-border rounded-lg p-4 md:p-5 relative transition-colors duration-500 min-h-0">
+        <div className="absolute top-2 left-2 screw-hole transition-colors duration-500" />
+        <div className="absolute top-2 right-2 screw-hole transition-colors duration-500" />
+        <div className="absolute bottom-2 left-2 screw-hole transition-colors duration-500" />
+        <div className="absolute bottom-2 right-2 screw-hole transition-colors duration-500" />
 
-        {/* 3D Arm Viewer */}
-        <div className="h-[350px] md:h-[400px] mb-6 rounded-md overflow-hidden">
+        {/* 3D Viewer */}
+        <div className="flex-1 min-h-0 w-full mb-4 rounded-md overflow-hidden bg-background/50 transition-colors duration-500">
           <RobotArm3D joints={joints} />
         </div>
 
-        {/* Joint Sliders */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+        {/* Sliders Container */}
+        <div className="flex-none grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3 mb-4">
           {JOINT_CONFIG.map((joint, i) => (
             <JointSlider
               key={joint.label}
@@ -186,15 +212,15 @@ const ControlPanel = () => {
         </div>
 
         {/* Speed Control */}
-        <div className="panel-inset rounded-md p-4 mb-6">
-          <div className="flex items-center justify-between mb-3">
+        <div className="flex-none panel-inset rounded-md p-3 mb-4 transition-colors duration-500">
+          <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <Gauge className="w-4 h-4 text-primary" />
-              <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <Gauge className="w-4 h-4 text-primary transition-colors duration-500" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground transition-colors duration-500">
                 Servo Speed
               </span>
             </div>
-            <span className="text-sm font-bold text-primary text-glow tabular-nums">{speed}%</span>
+            <span className="text-sm font-bold text-primary text-glow tabular-nums transition-colors duration-500">{speed}%</span>
           </div>
           <Slider
             value={[speed]}
@@ -203,15 +229,11 @@ const ControlPanel = () => {
             max={100}
             step={1}
           />
-          <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
-            <span>Slow</span>
-            <span>Fast</span>
-          </div>
         </div>
 
         {/* Controls Row */}
-        <div className="flex flex-wrap items-center gap-3">
-          <Button onClick={savePose} variant="outline" size="sm" disabled={isPlaying}>
+        <div className="flex-none flex flex-wrap items-center gap-3">
+          <Button onClick={savePose} variant="outline" size="sm" disabled={isPlaying} className="transition-colors duration-500">
             <Save className="w-4 h-4 mr-2" />
             <span className="text-xs uppercase tracking-wide">Save</span>
           </Button>
@@ -221,13 +243,13 @@ const ControlPanel = () => {
             variant="default"
             size="sm"
             disabled={isPlaying || poses.length === 0}
-            className="glow-amber"
+            className="glow-amber transition-colors duration-500"
           >
             <Play className="w-4 h-4 mr-2" />
             <span className="text-xs uppercase tracking-wide">Play</span>
           </Button>
 
-          <Button onClick={stopPlayback} variant="outline" size="sm" disabled={!isPlaying}>
+          <Button onClick={stopPlayback} variant="outline" size="sm" disabled={!isPlaying} className="transition-colors duration-500">
             <Square className="w-4 h-4 mr-2" />
             <span className="text-xs uppercase tracking-wide">Stop</span>
           </Button>
@@ -237,24 +259,25 @@ const ControlPanel = () => {
             variant="outline"
             size="sm"
             disabled={poses.length === 0}
+            className="transition-colors duration-500"
           >
             <RotateCcw className="w-4 h-4 mr-2" />
             <span className="text-xs uppercase tracking-wide">Reset</span>
           </Button>
 
-          <div className="h-6 w-px bg-border mx-1" />
+          <div className="hidden sm:block h-6 w-px bg-border mx-1 transition-colors duration-500" />
 
           {/* Loop Toggle */}
           <div className="flex items-center gap-2">
-            <Repeat className={`w-4 h-4 ${loop ? "text-primary text-glow" : "text-muted-foreground"}`} />
+            <Repeat className={`w-4 h-4 transition-colors duration-500 ${loop ? "text-primary text-glow" : "text-muted-foreground"}`} />
             <Switch checked={loop} onCheckedChange={setLoop} />
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Loop</span>
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground transition-colors duration-500">Loop</span>
           </div>
 
-          <div className="h-6 w-px bg-border mx-1" />
+          <div className="hidden sm:block h-6 w-px bg-border mx-1 transition-colors duration-500" />
 
           {/* Pose Counter */}
-          <div className="panel-inset rounded px-3 py-1.5 flex items-center gap-2">
+          <div className="panel-inset rounded px-3 py-1.5 flex items-center gap-2 transition-colors duration-500 ml-auto sm:ml-0">
             <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Poses</span>
             <span className="text-sm font-bold text-primary text-glow tabular-nums">{poses.length}</span>
           </div>
@@ -262,8 +285,8 @@ const ControlPanel = () => {
           {/* Playing indicator */}
           {isPlaying && (
             <div className="flex items-center gap-2 ml-auto">
-              <span className="status-dot bg-primary animate-pulse" />
-              <span className="text-[10px] uppercase tracking-widest text-primary text-glow">
+              <span className="status-dot bg-primary animate-pulse transition-colors duration-500" />
+              <span className="text-[10px] uppercase tracking-widest text-primary text-glow transition-colors duration-500 hidden sm:inline">
                 Playing{loop ? " (loop)" : ""}
               </span>
             </div>
